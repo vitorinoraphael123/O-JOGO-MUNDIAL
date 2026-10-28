@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Futebol Brasileiro - Pro Simulator 3D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; -webkit-user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #04060f; color: #fff; }
+        
+        /* GERENCIADOR DE TELAS UNIVERSAL */
+        .tela { position: absolute; width: 100%; height: 100%; display: none; background: linear-gradient(135deg, #070c1e, #121b3a); z-index: 1; }
+        .ativa { display: flex !important; }
+
+        /* MENU PRINCIPAL ESTILO EA SPORTS */
+        #menu-principal { flex-direction: row; }
+        .sidebar { width: 25%; background: rgba(3, 5, 12, 0.95); border-right: 3px solid #00ff87; display: flex; flex-direction: column; justify-content: center; padding: 40px; gap: 15px; z-index: 10; }
+        .sidebar h1 { font-size: 26px; color: #00ff87; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 10px rgba(0,255,135,0.2); }
+        .btn-menu { width: 100%; padding: 16px 20px; background: #141d40; border: 1px solid #24336a; border-radius: 6px; color: #fff; font-size: 15px; font-weight: bold; text-align: left; cursor: pointer; transition: 0.2s; }
+        .btn-menu:hover { background: #00ff87; color: #000; transform: translateX(4px); }
+        .conteudo-menu { width: 75%; background: linear-gradient(to right, rgba(7,12,30,0.8), transparent), url('https://unsplash.com') center center/cover; }
+        
+        /* PAINÉIS CENTRAIS DAS TELAS SECUNDÁRIAS */
+        .painel-central { background: rgba(9, 14, 33, 0.96); width: 85%; max-width: 1000px; height: 85%; margin: auto; border-radius: 12px; border: 1px solid #24336a; padding: 35px; overflow-y: auto; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .titulo-painel { font-size: 30px; color: #00ff87; margin-bottom: 20px; border-bottom: 2px solid #24336a; padding-bottom: 12px; text-transform: uppercase; }
+        .descricao-painel { font-size: 14px; color: #8fa0dd; margin-bottom: 25px; line-height: 1.5; }
+        
+        /* SELEÇÃO DE TIMES */
+        .secao-selecao { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
+        .coluna-selecao { flex: 1; min-width: 250px; background: rgba(20, 29, 64, 0.5); padding: 15px; border-radius: 8px; border: 1px solid #24336a; }
+        .coluna-selecao h3 { color: #ffb703; font-size: 16px; margin-bottom: 10px; text-transform: uppercase; }
+        .grid-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 5px; }
+        .card-time { background: #141d40; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #24336a; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.15s; }
+        .card-time:hover, .card-time.selecionado { border-color: #00ff87; background: #1d2a5c; color: #00ff87; }
+        
+        /* CONTROLES E CONFIGURAÇÕES DE JOGO */
+        .config-row { display: flex; gap: 20px; margin-bottom: 20px; align-items: center; }
+        .config-row label { font-size: 14px; font-weight: bold; color: #a4b3e6; min-width: 150px; }
+        .config-row select { padding: 10px; background: #141d40; color: #fff; border: 1px solid #24336a; border-radius: 5px; min-width: 200px; outline: none; }
+
+        /* INTERFACE DA GAMEPLAY (HUD) */
+        #tela-gameplay { background: #000; position: relative; }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 1; }
+        .hud-placar { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(3, 5, 12, 0.92); padding: 12px 45px; border-radius: 6px; display: flex; align-items: center; gap: 25px; border-bottom: 3px solid #00ff87; font-size: 24px; font-weight: bold; z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .hud-placar .sigla { color: #fff; text-transform: uppercase; }
+        .hud-placar .gols { color: #00ff87; font-size: 28px; }
+        .cronometro { color: #ffb703; font-family: monospace; font-size: 18px; margin-left: 10px; border-left: 1px solid #24336a; padding-left: 15px; }
+        
+        /* CONTROLES TOUCH PARA IPAD / CELULAR */
+        .controles-touch { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 50px; z-index: 10; pointer-events: none; }
+        .zona-joystick { width: 140px; height: 140px; background: rgba(255,255,255,0.08); border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); position: relative; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
+        .direcional-botao { width: 50px; height: 50px; background: rgba(255,255,255,0.3); border-radius: 50%; cursor: pointer; position: absolute; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .botoes-acao { display: flex; gap: 20px; align-items: center; pointer-events: auto; }
+        .btn-action { width: 70px; height: 70px; border-radius: 50%; border: none; font-weight: bold; font-size: 14px; color: #fff; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.4); active-transform: scale(0.9); }
+        .btn-chute { background: #e63946; }
+        .btn-passe { background: #457b9d; }
+        .btn-sair-partida { background: #24336a; width: auto; height: auto; border-radius: 6px; padding: 12px 20px; font-size: 14px; text-transform: uppercase; }
+
+        /* TABELAS */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: rgba(20, 29, 64, 0.3); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 14px; text-align: left; border-bottom: 1px solid #24336a; font-size: 14px; }
+        th { background: #03050c; color: #00ff87; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        tr:hover { background: rgba(255,255,255,0.03); }
+
+        .btn-acao-painel { background: #00ff87; color: #000; border: none; padding: 14px 28px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: auto; align-self: flex-end; text-transform: uppercase; }
+        .btn-acao-painel:hover { background: #00cc6c; transform: translateY(-2px); }
+        .btn-voltar { background: transparent; color: #8fa0dd; border: 1px solid #24336a; margin-right: 15px; }
+        .btn-voltar:hover { background: rgba(36,51,106,0.3); color: #fff; }
+    </style>
+    <!-- Módulos Oficiais 3D WebGL via CDN estável -->
+    <script src="https://cloudflare.com"></script>
+</head>
+<body>
+
+    <!-- 1. TELA: MENU PRINCIPAL -->
+    <div id="tela-principal" class="tela ativa">
+        <div class="sidebar">
+            <h1>Futebol BR</h1>
+            <button class="btn-menu" onclick="mostrarTela('jogar')">JOGAR</button>
+            <button class="btn-menu" onclick="mostrarTela('carreira')">MODO CARREIRA</button>
+            <button class="btn-menu" onclick="mostrarTela('clubes')">CLUBES</button>
+            <button class="btn-menu" onclick="mostrarTela('campeonatos')">CAMPEONATOS</button>
+            <button class="btn-menu" onclick="mostrarTela('configuracoes')">CONFIGURAÇÕES</button>
+        </div>
+        <div class="conteudo-menu"></div>
+    </div>
+
+    <!-- 2. TELA: CONFIGURAR PARTIDA (JOGAR) -->
+    <div id="tela-jogar" class="tela">
+        <div class="painel-central">
+            <h2 class="titulo-painel">Partida Rápida</h2>
+            <p class="descricao-painel">Configure o formato do confronto e escolha as equipes para entrar em campo na simulação 3D.</p>
+            
+            <div class="config-row">
+                <label>Formato da Partida</label>
+                <select id="formato-match">
+                    <option value="1">1v1 (Modo Treino)</option>
+                    <option value="3">3v3 (Modo Reduzido)</option>
+                    <option value="5" selected>5v5 (Modo Completo)</option>
+                </select>
+            </div>
+
+            <div class="config-row" style="margin-bottom: 30px;">
+                <label>Modo de Jogo</label>
+                <select id="rede-match">
+                    <option value="offline">Offline (Contra Bot Inteligente)</option>
+                    <option value="online">Online (Simulação de Rede Local)</option>
+                </select>
+            </div>
+
+            <div class="secao-selecao">
+                <div class="coluna-selecao">
+                    <h3>Seu Time (Casa)</h3>
+                    <div class="grid-times" id="times-casa"></div>
+                </div>
+                <div class="coluna-selecao">
+                    <h3>Adversário (Fora)</h3>
+                    <div class="grid-times" id="times-fora"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: auto;">
+                <button class="btn-acao-painel btn-voltar" onclick="mostrarTela('principal')">Voltar</button>
+                <button class="btn-acao-painel" onclick="confirmarEIniciarJogo()">Iniciar Partida</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. TELA: MODO CARREIRA -->
+    <div id="tela-carreira" class="tela">
+        <div class="painel-central">
+            <h2 class="titulo-painel">Modo Carreira - Brasileirão 2026</h2>
+            <p class="descricao-painel">Acompanhe a tabela viva da liga. Os pontos e posições mudam em tempo real conforme você joga as partidas!</p>
+            
+            <table id="tabela-carreira-dados">
+                <thead>
+                    <tr><th>Pos</th><th>Clube</th><th>Pts</th><th>Vitórias</th><th>Derrotas</th><th>Saldo</th></tr>
+                </thead>
+Voltar ao Menu
+Simular Rodada
+
+
+Clubes & Elencos Oficiais
+Veja as potências e os jogadores de destaque calibrados com estatísticas idênticas aos reais da temporada.
+Voltar
+
+Copas & Torneios Globais
+Selecione competições internacionais ou continentais para disputar o topo do mundo.
+🏆 THE WORLD TROPHY (COPA DO MUNDO)
+Dispute o maior torneio de seleções contra 32 potências mundiais com chaves completas de mata-mata.
+🌎 COPA GLÓRIA DAS AMÉRICAS (CONTINENTAL)
+Enfronte os melhores clubes da América do Sul em um torneio eletrizante de ida e volta.
+Voltar
+
+Configurações do Sistema
+Ajustes gráficos e mecânicas internas da engine de simulação.
+
+Qualidade dos Gráficos
+Alta (Renderização WebGL Nativa)
+Média
+Baixa (Otimizada para Celulares Antigos)
+
+
+Atmosfera da Torcida
+Imersiva / Estádio Lotado
+Desativado
+
+Salvar e Voltar
+
+CASA
+0
+x
+0
+FORA
+00:00
+PAD
+PASSE
+CHUTE
+Sair
+
+
+// --- BANCO DE DADOS COMPLETO E SCOUTS ---
+const databaseClubesCompleta = [
+{ id: "fla", nome: "Fla-Mengo SC", original: "Flamengo", ataque: 85, defesa: 83, cor: 0xcc0000, elenco: ["Gabigol (ATA - 82)", "Arrascaeta (MCO - 84)", "Gerson (MC - 81)"], pts: 65, v: 20, d: 5, sg: 22 },
+{ id: "cor", nome: "Alvinegro Paulista", original: "Corinthians", ataque: 81, defesa: 82, cor: 0xffffff, elenco: ["Memphis Depay (ATA - 83)", "Rodrigo Garro (MCO - 81)", "Yuri Alberto (ATA - 79)"], pts: 58, v: 17, d: 8, sg: 12 },
+{ id: "pal", nome: "Verdão Palestra", original: "Palmeiras", ataque: 84, defesa: 85, cor: 0x006633, elenco: ["Raphael Veiga (MCO - 82)", "Estêvão (ATA - 81)", "Felipe Anderson (MD - 80)"], pts: 64, v: 19, d: 6, sg: 19 },
+{ id: "sao", nome: "São Paulo Morumbi", original: "São Paulo", ataque: 80, defesa: 81, cor: 0x990000, elenco: ["Lucas Moura (ATA - 81)", "Calleri (ATA - 80)", "Luciano (MCO - 78)"], pts: 54, v: 16, d: 10, sg: 8 },
+{ id: "san", nome: "Santos Alvinegro", original: "Santos", ataque: 78, defesa: 77, cor: 0x555555, elenco: ["Guilherme (ATA - 76)", "Otero (MCO - 75)"], pts: 48, v: 14, d: 12, sg: 2 }
+];
+let clubeCasaAtivo = databaseClubesCompleta[0];
+let clubeForaAtivo = databaseClubesCompleta[1];
+let tecladoAtivo = {};
+let cena, camera, renderizador, bola, jogadorPrincipal, botAdversario;
+let golsCasa = 0, golsFora = 0, tempoDeJogo = 0;
+let frameLoopID = null;
+// --- GERENCIADOR DE ESTADOS DE TELA ---
+function mostrarTela(idTela) {
+document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+if(idTela === 'principal') {
+document.getElementById('menu-principal').classList.add('ativa');
+} else {
+document.getElementById('tela-' + idTela).classList.add('ativa');
+}
+if(idTela === 'jogar') renderizarCardsSelecao();
+if(idTela === 'carreira') atualizarTabelaVisualCarreira();
+if(idTela === 'clubes') renderizarPainelElencos();
+}
+// --- POPULAR OS COMPONENTES VISUAIS DOS MENUS ---
+function renderizarCardsSelecao() {
+const casaDiv = document.getElementById('times-casa');
+const foraDiv = document.getElementById('times-fora');
+casaDiv.innerHTML = ""; foraDiv.innerHTML = "";
+databaseClubesCompleta.forEach(time => {
+casaDiv.innerHTML += <div class="card-time ${clubeCasaAtivo.id === time.id ? 'selecionado' : ''}" onclick="definirTime('casa', '${time.id}')">${time.nome}</div>;
+foraDiv.innerHTML += <div class="card-time ${clubeForaAtivo.id === time.id ? 'selecionado' : ''}" onclick="definirTime('fora', '${time.id}')">${time.nome}</div>;
+});
+}
+function definirTime(lado, idTime) {
+let time = databaseClubesCompleta.find(t => t.id === idTime);
+if(lado === 'casa') clubeCasaAtivo = time;
+if(lado === 'fora') clubeForaAtivo = time;
+renderizarCardsSelecao();
+}
+function atualizarTabelaVisualCarreira() {
+const tbody = document.querySelector('#tabela-carreira-dados tbody');
+tbody.innerHTML = "";
+databaseClubesCompleta.sort((a,b) => b.pts - a.pts).forEach((t, i) => {
+tbody.innerHTML += <tr><td>${i+1}</td><td><b>${t.nome}</b></td><td>${t.pts}</td><td>${t.v}</td><td>${t.d}</td><td>+${t.sg}</td></tr>;
+});
+}
+function simularRodadaCarreira() {
+databaseClubesCompleta.forEach(t => {
+if(Math.random() > 0.4) { t.pts += 3; t.v += 1; t.sg += Math.floor(Math.random()*3); }
+else { t.d += 1; }
+});
+atualizarTabelaVisualCarreira();
+}
+function renderizarPainelElencos() {
+const box = document.getElementById('lista-elencos-dinamica');
+box.innerHTML = "";
+databaseClubesCompleta.forEach(t => {
+box.innerHTML += <div style="background:#141d40; padding:15px; border-radius:8px; border:1px solid #24336a;"> <h3 style="color:#00ff87; margin-bottom:5px;">${t.nome} (Scout Geral: ${Math.floor((t.ataque+t.defesa)/2)})</h3> <p style="font-size:13px; color:#cbd5e1;">Atletas Principais: ${t.elenco.join(' | ')}</p> </div>;
+});
+}
+// --- ENGINE GRÁFICA 3D REAL (THREE.JS) ---
+function confirmarEIniciarJogo() {
+mostrarTela('gameplay');
+document.getElementById('hud-txt-casa').innerText = clubeCasaAtivo.nome.substring(0,3).toUpperCase();
+document.getElementById('hud-txt-fora').innerText = clubeForaAtivo.nome.substring(0,3).toUpperCase();
+document.getElementById('hud-score-casa').innerText = "0";
+document.getElementById('hud-score-fora').innerText = "0";
+const container = document.getElementById('canvas-container');
+container.innerHTML = ""; // Limpa instâncias antigas de renderizações passadas
+cena = new THREE.Scene();
+cena.background = new THREE.Color(0x060919);
+camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+renderizador = new THREE.WebGLRenderer({ antialias: true });
+renderizador.setSize(window.innerWidth, window.innerHeight);
+container.appendChild(renderizador.domElement);
+// Iluminação Potente de Refletores
+const luzDirecional = new THREE.DirectionalLight(0xffffff, 1.6);
+luzDirecional.position.set(0, 60, 15);
+cena.add(luzDirecional);
+cena.add(new THREE.AmbientLight(0x555555));
+// Gramado Texturizado do Estádio
+const gramaGeo = new THREE.PlaneGeometry(80, 110);
+const gramaMat = new THREE.MeshStandardMaterial({ color: 0x1a4a25, roughness: 0.6 });
+const campo3D = new THREE.Mesh(gramaGeo, gramaMat);
+campo3D.rotation.x = -Math.PI / 2;
+cena.add(campo3D);
+// Bola de Futebol Física
+const bolaGeo = new THREE.SphereGeometry(0.5, 16, 16);
+const bolaMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+bola = new THREE.Mesh(bolaGeo, bolaMat);
+bola.position.set(0, 0.5, 0);
+cena.add(bola);
+bola.vX = 0; bola.vZ = 0;
+// Seu Jogador (Cápsula 3D com a cor do time selecionado)
+const jogadorGeo = new THREE.CylinderGeometry(0.6, 0.6, 2.4, 16);
+const matCasa = new THREE.MeshStandardMaterial({ color: clubeCasaAtivo.cor });
+jogadorPrincipal = new THREE.Mesh(jogadorGeo, matCasa);
+jogadorPrincipal.position.set(0, 1.2, 18);
+cena.add(jogadorPrincipal);
+// Bot Adversário (Cápsula com a cor do time adversário)
+const matFora = new THREE.MeshStandardMaterial({ color: clubeForaAtivo.cor });
+botAdversario = new THREE.Mesh(jogadorGeo, matFora);
+botAdversario.position.set(0, 1.2, -18);
+cena.add(botAdversario);
+// Ouvintes de teclado para Computadores
+window.addEventListener('keydown', dispararKeyDown);
+window.addEventListener('keyup', dispararKeyUp);
+golsCasa = 0; golsFora = 0; tempoDeJogo = 0;
+if(frameLoopID) cancelAnimationFrame(frameLoopID);
+gameplayLoop();
+}
+function dispararKeyDown(e) { tecladoAtivo[e.key.toLowerCase()] = true; }
+function dispararKeyUp(e) { tecladoAtivo[e.key.toLowerCase()] = false; }
+// --- LOOP DINÂMICO DE ATUALIZAÇÃO DA PARTIDA ---
+function gameplayLoop() {
+frameLoopID = requestAnimationFrame(gameplayLoop);
+// Atualização do Relógio do HUD
+tempoDeJogo += 0.015;
+let minutos = Math.floor(tempoDeJogo);
+document.getElementById('hud-timer').innerText = ${minutos < 10 ? '0' + minutos : minutos}:00;
+// Movimentação via Teclado PC (W, A, S, D)
+let velocidadeMarcha = 0.22;
+if (tecladoAtivo['w']) jogadorPrincipal.position.z -= velocidadeMarcha;
+if (tecladoAtivo['s']) jogadorPrincipal.position.z += velocidadeMarcha;
+if (tecladoAtivo['a']) jogadorPrincipal.position.x -= velocidadeMarcha;
+if (tecladoAtivo['d']) jogadorPrincipal.position.x += velocidadeMarcha;
+if (tecladoAtivo[' ']) chutarBolaAcao();
+// Inteligência Artificial do Bot (Segue a posição da bola no campo)
+let velocidadeBot = 0.11 + (clubeForaAtivo.ataque * 0.001); // Calibrado via scout real
+if(botAdversario.position.x < bola.position.x) botAdversario.position.x += velocidadeBot;
+if(botAdversario.position.x > bola.position.x) botAdversario.position.x -= velocidadeBot;
+if(botAdversario.position.z < bola.position.z) botAdversario.position.z += velocidadeBot;
+if(botAdversario.position.z > bola.position.z) botAdversario.position.z -= velocidadeBot;
+
+
+// Detecção de Colisão e Condução (Drible)
+let distJogadorBola = jogadorPrincipal.position.distanceTo(bola.position);
+if(distJogadorBola < 1.6) {
+bola.position.z += (bola.position.z - jogadorPrincipal.position.z) * 0.25;
+bola.position.x += (bola.position.x - jogadorPrincipal.position.x) * 0.25;
+}
+let distBotBola = botAdversario.position.distanceTo(bola.position);
+if(distBotBola < 1.6) {
+// Bot rebate ou chuta em direção ao gol de baixo
+bola.vZ = 0.7;
+bola.vX = (Math.random() - 0.5) * 0.3;
+}
+// Processamento de Física dos Chutes e Desaceleração
+bola.position.x += bola.vX;
+bola.position.z += bola.vZ;
+bola.vX *= 0.95;
+bola.vZ *= 0.95;
+// Checagem de Gol nas Linhas de Fundo
+if(bola.position.z < -52) { // Gol do usuário
+golsCasa++;
+document.getElementById('hud-score-casa').innerText = golsCasa;
+alert(⚽ GOOOL do ${clubeCasaAtivo.nome}!);
+resetarPosiçõesElementos();
+} else if(bola.position.z > 52) { // Gol da inteligência artificial
+golsFora++;
+document.getElementById('hud-score-fora').innerText = golsFora;
+alert(❌ Gol do Adversário (${clubeForaAtivo.nome})!);
+resetarPosiçõesElementos();
+}
+// Câmera Inteligente FIFA (Segue a bola suavemente mantendo profundidade)
+camera.position.x = bola.position.x * 0.5;
+camera.position.z = bola.position.z + 22;
+camera.position.y = 15;
+camera.lookAt(bola.position.x, 0, bola.position.z - 3);
+renderizador.render(cena, camera);
+}
+// --- FUNÇÕES DE INTERAÇÃO DOS BOTÕES ---
+function chutarBolaAcao() {
+let dist = jogadorPrincipal.position.distanceTo(bola.position);
+if(dist < 2.5) {
+let potencia = 1.4 + (clubeCasaAtivo.ataque * 0.005);
+bola.vZ = -potencia; // Impulso para frente
+bola.vX = (Math.random() - 0.5) * 0.5;
+}
+}
+function passarBolaAcao() {
+let dist = jogadorPrincipal.position.distanceTo(bola.position);
+if(dist < 2.5) {
+bola.vZ = -0.9;
+bola.vX = 0;
+}
+}
+function moverJogadorTouch(direcao) {
+let intensidade = 1.5;
+if(direcao === 'cima') jogadorPrincipal.position.z -= intensidade;
+if(direcao === 'baixo') jogadorPrincipal.position.z += intensidade;
+if(direcao === 'esquerda') jogadorPrincipal.position.x -= intensidade;
+if(direcao === 'direita') jogadorPrincipal.position.x += intensidade;
+}
+function resetarPosiçõesElementos() {
+bola.position.set(0, 0.5, 0);
+bola.vX = 0; bola.vZ = 0;
+jogadorPrincipal.position.set(0, 1.2, 18);
+botAdversario.position.set(0, 1.2, -18);
+}
+function encerrarPartidaGeral() {
+if(frameLoopID) cancelAnimationFrame(frameLoopID);
+window.removeEventListener('keydown', dispararKeyDown);
+window.removeEventListener('keyup', dispararKeyUp);
+mostrarTela('principal');
+}
+window.onload = () => {
+iniciarEstruturas();
+};
